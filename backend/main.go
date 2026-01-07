@@ -5,16 +5,46 @@ import (
 	"os"
 
 	"ecommerce-backend/handlers"
+	"ecommerce-backend/middleware"
 	"ecommerce-backend/models"
 	"ecommerce-backend/routes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var db *gorm.DB
+
+func createDefaultAdmin(db *gorm.DB) {
+	var admin models.User
+	result := db.Where("email = ?", "admin@ergolife.com").First(&admin)
+
+	if result.Error != nil {
+		// Admin doesn't exist, create one
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+		if err != nil {
+			log.Println("Failed to hash admin password:", err)
+			return
+		}
+
+		admin = models.User{
+			Email:    "admin@ergolife.com",
+			Password: string(hashedPassword),
+			Name:     "Admin User",
+			Role:     "ADMIN",
+		}
+
+		if err := db.Create(&admin).Error; err != nil {
+			log.Println("Failed to create default admin:", err)
+			return
+		}
+
+		log.Println("Default admin user created: admin@ergolife.com / admin123")
+	}
+}
 
 func main() {
 	// Load environment variables
@@ -34,9 +64,13 @@ func main() {
 	}
 
 	// Auto migrate the schema
-	db.AutoMigrate(&models.User{}, &models.Product{}, &models.Cart{}, &models.CartItem{}, &models.Order{}, &models.OrderItem{})
+	db.AutoMigrate(&models.User{}, &models.Product{}, &models.Cart{}, &models.CartItem{}, &models.Order{}, &models.OrderItem{}, &models.Voucher{}, &models.Blog{})
+
+	// Create default admin user if it doesn't exist
+	createDefaultAdmin(db)
 
 	handlers.SetDB(db)
+	middleware.SetDB(db)
 
 	// Setup Gin router
 	r := gin.Default()

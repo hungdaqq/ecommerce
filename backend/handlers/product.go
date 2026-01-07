@@ -11,7 +11,49 @@ import (
 
 func GetProducts(c *gin.Context) {
 	var products []models.Product
-	if err := db.Find(&products).Error; err != nil {
+
+	query := db.Model(&models.Product{})
+
+	// Category filter
+	if category := c.Query("category"); category != "" && category != "Tất cả" {
+		query = query.Where("category = ?", category)
+	}
+
+	// Price range filter
+	if minPrice := c.Query("min_price"); minPrice != "" {
+		if min, err := strconv.Atoi(minPrice); err == nil {
+			query = query.Where("price >= ?", min)
+		}
+	}
+	if maxPrice := c.Query("max_price"); maxPrice != "" {
+		if max, err := strconv.Atoi(maxPrice); err == nil {
+			query = query.Where("price <= ?", max)
+		}
+	}
+
+	// Search filter
+	if search := c.Query("search"); search != "" {
+		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Sorting
+	sortBy := c.DefaultQuery("sort", "created_at")
+	order := c.DefaultQuery("order", "desc")
+
+	switch sortBy {
+	case "price":
+		if order == "asc" {
+			query = query.Order("price ASC")
+		} else {
+			query = query.Order("price DESC")
+		}
+	case "name":
+		query = query.Order("name ASC")
+	default: // created_at or newest
+		query = query.Order("created_at DESC")
+	}
+
+	if err := query.Find(&products).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
 		return
 	}

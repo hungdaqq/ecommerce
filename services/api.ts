@@ -91,7 +91,7 @@ class ApiService {
     return response.json();
   }
 
-  async login(data: LoginData): Promise<{ token: string }> {
+  async login(data: LoginData): Promise<{ token: string; user: any }> {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -170,6 +170,116 @@ class ApiService {
 
   async getOrder(id: number): Promise<Order> {
     return this.request(`/api/orders/${id}`);
+  }
+
+  // Admin
+  async getDashboardStats(): Promise<any> {
+    return this.request('/api/admin/dashboard');
+  }
+
+  async getUsers(role?: string): Promise<any[]> {
+    const url = role ? `/api/admin/users?role=${role}` : '/api/admin/users';
+    return this.request(url);
+  }
+
+  async createUser(user: any): Promise<any> {
+    return this.request('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+  }
+
+  async updateAdminUser(id: number, user: any): Promise<any> {
+    return this.request(`/api/admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    });
+  }
+
+  async deleteAdminUser(id: number): Promise<void> {
+    return this.request(`/api/admin/users/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAdminProducts(): Promise<any[]> {
+    return this.request('/api/admin/products');
+  }
+
+  async createAdminProduct(product: any): Promise<any> {
+    return this.request('/api/admin/products', {
+      method: 'POST',
+      body: JSON.stringify(product),
+    });
+  }
+
+  async updateAdminProduct(id: number, product: any): Promise<any> {
+    return this.request(`/api/admin/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(product),
+    });
+  }
+
+  async deleteAdminProduct(id: number): Promise<void> {
+    return this.request(`/api/admin/products/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getVouchers(): Promise<any[]> {
+    return this.request('/api/admin/vouchers');
+  }
+
+  async createVoucher(voucher: any): Promise<any> {
+    return this.request('/api/admin/vouchers', {
+      method: 'POST',
+      body: JSON.stringify(voucher),
+    });
+  }
+
+  async updateVoucher(id: number, voucher: any): Promise<any> {
+    return this.request(`/api/admin/vouchers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(voucher),
+    });
+  }
+
+  async deleteVoucher(id: number): Promise<void> {
+    return this.request(`/api/admin/vouchers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getPublishedBlogs(): Promise<any[]> {
+    return this.request('/api/blogs');
+  }
+
+  async getPublishedBlog(id: number): Promise<any> {
+    return this.request(`/api/blogs/${id}`);
+  }
+
+  async getBlogs(): Promise<any[]> {
+    return this.request('/api/admin/blogs');
+  }
+
+  async createBlog(blog: any): Promise<any> {
+    return this.request('/api/admin/blogs', {
+      method: 'POST',
+      body: JSON.stringify(blog),
+    });
+  }
+
+  async updateBlog(id: number, blog: any): Promise<any> {
+    return this.request(`/api/admin/blogs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(blog),
+    });
+  }
+
+  async deleteBlog(id: number): Promise<void> {
+    return this.request(`/api/admin/blogs/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 
