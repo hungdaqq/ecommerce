@@ -121,7 +121,7 @@ func DeleteProduct(c *gin.Context) {
 		return
 	}
 
-	if err := db.Delete(&models.Product{}, id).Error; err != nil {
+	if err := db.Unscoped().Delete(&models.Product{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
 		return
 	}
