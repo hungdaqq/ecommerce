@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { MOCK_PRODUCTS, MOCK_BLOGS, TEST_USERS } from './constants.tsx';
 import { User, UserRole, Product, CartItem, Order, BlogPost } from './types.ts';
+import { apiService } from './services/api.ts';
 import { 
   LineChart, 
   Line, 
@@ -40,6 +41,7 @@ const formatPrice = (price: number) => {
 // --- Main App Component ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -47,6 +49,39 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const fetchedProducts = await apiService.getProducts();
+        setProducts(fetchedProducts.map(p => ({ ...p, id: p.id.toString() })));
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+        // Fallback to mock data
+        setProducts(MOCK_PRODUCTS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+
+    // Check for existing session
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+        fetchCart();
+      } catch (error) {
+        console.error('Failed to restore session:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
 
   // --- Auth Handlers ---
   const handleLogin = (role: UserRole) => {
@@ -63,28 +98,60 @@ export default function App() {
     setCurrentUser(null);
     setView('HOME');
     setCart([]);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
 
   // --- Cart Handlers ---
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.productId === product.id);
-      if (existing) {
-        return prev.map(item => item.productId === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prev, { productId: product.id, quantity: 1 }];
-    });
-    alert('Đã thêm vào giỏ hàng!');
+  const fetchCart = async () => {
+    if (!currentUser) return;
+    try {
+      const cartData = await apiService.getCart();
+      setCart(cartData.items.map((item: any) => ({
+        id: item.id,
+        productId: item.product_id.toString(),
+        quantity: item.quantity,
+        product: {
+          id: item.product.id.toString(),
+          name: item.product.name,
+          price: item.product.price,
+          image: item.product.image_url,
+          category: item.product.category,
+          stock: item.product.stock,
+        }
+      })));
+    } catch (error) {
+      console.error('Failed to fetch cart:', error);
+    }
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.productId !== productId));
+  const addToCart = async (product: Product) => {
+    if (!currentUser) {
+      alert('Please login to add to cart');
+      setView('LOGIN');
+      return;
+    }
+    try {
+      await apiService.addToCart(parseInt(product.id), 1);
+      await fetchCart();
+      alert('Đã thêm vào giỏ hàng!');
+    } catch (error) {
+      alert('Failed to add to cart');
+    }
+  };
+
+  const removeFromCart = async (itemId: number) => {
+    try {
+      await apiService.removeFromCart(itemId);
+      await fetchCart();
+    } catch (error) {
+      alert('Failed to remove from cart');
+    }
   };
 
   const cartTotal = useMemo(() => {
     return cart.reduce((acc, item) => {
-      const product = MOCK_PRODUCTS.find(p => p.id === item.productId);
-      return acc + (product?.price || 0) * item.quantity;
+      return acc + (item.product?.price || 0) * item.quantity;
     }, 0);
   }, [cart]);
 
@@ -222,7 +289,7 @@ export default function App() {
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {MOCK_PRODUCTS.slice(0, 4).map(product => (
+          {products.slice(0, 4).map(product => (
             <div key={product.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-gray-100 flex flex-col">
               <div className="relative overflow-hidden aspect-square">
                 <img src={product.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={product.name} />
@@ -284,7 +351,7 @@ export default function App() {
 
         <div className="flex-1">
           <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 text-sm">Hiển thị {MOCK_PRODUCTS.length} sản phẩm</p>
+            <p className="text-gray-500 text-sm">Hiển thị {products.length} sản phẩm</p>
             <select className="bg-transparent border-none outline-none text-sm font-medium text-gray-700">
               <option>Mới nhất</option>
               <option>Giá tăng dần</option>
@@ -292,7 +359,7 @@ export default function App() {
             </select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {MOCK_PRODUCTS.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map(product => (
+            {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map(product => (
               <div key={product.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-gray-100 flex flex-col">
                 <div className="relative overflow-hidden aspect-square cursor-pointer" onClick={() => { setSelectedProduct(product); setView('DETAIL'); }}>
                   <img src={product.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={product.name} />
@@ -392,10 +459,10 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {cart.map(item => {
-              const product = MOCK_PRODUCTS.find(p => p.id === item.productId);
+              const product = item.product;
               if (!product) return null;
               return (
-                <div key={item.productId} className="flex gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div key={item.id} className="flex gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                   <img src={product.image} className="w-24 h-24 object-cover rounded-xl" alt={product.name} />
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900">{product.name}</h3>
@@ -406,7 +473,7 @@ export default function App() {
                         <span className="px-3 py-1 border-x font-medium">{item.quantity}</span>
                         <button className="px-3 py-1 hover:bg-gray-50">+</button>
                       </div>
-                      <button onClick={() => removeFromCart(item.productId)} className="text-red-500 text-sm font-medium hover:underline">Xóa</button>
+                      <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-sm font-medium hover:underline">Xóa</button>
                     </div>
                   </div>
                 </div>
@@ -436,65 +503,182 @@ export default function App() {
     </div>
   );
 
-  // 7. Login View
-  const LoginView = () => (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100">
-        <h2 className="text-3xl font-black text-center mb-2">Chào mừng trở lại</h2>
-        <p className="text-gray-400 text-center mb-8">Vui lòng chọn vai trò để tiếp tục demo</p>
-        <div className="space-y-4">
-          <button 
-            onClick={() => handleLogin(UserRole.USER)}
-            className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-emerald-600 hover:bg-emerald-50 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <UserIcon size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold">Người dùng</p>
-                <p className="text-xs text-gray-400">Mua sắm, quản lý đơn hàng</p>
-              </div>
-            </div>
-            <ChevronRight className="text-gray-300 group-hover:text-emerald-600" />
-          </button>
-          <button 
-            onClick={() => handleLogin(UserRole.STAFF)}
-            className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-emerald-600 hover:bg-emerald-50 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                <MessageSquare size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold">Nhân viên</p>
-                <p className="text-xs text-gray-400">Quản lý kho, hỗ trợ khách hàng</p>
+  // 6.5. Checkout View
+  const CheckoutView = () => {
+    const handleCheckout = async () => {
+      try {
+        await apiService.createOrder();
+        alert('Order placed successfully!');
+        setCart([]);
+        setView('HOME');
+      } catch (error) {
+        alert('Failed to place order');
+      }
+    };
+
+    return (
+      <div className="py-12 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 className="text-3xl font-bold mb-8">Thanh toán</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold mb-4">Thông tin giao hàng</h3>
+              <div className="space-y-4">
+                <input type="text" placeholder="Họ tên" className="w-full p-3 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none" />
+                <input type="email" placeholder="Email" className="w-full p-3 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none" />
+                <input type="tel" placeholder="Số điện thoại" className="w-full p-3 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none" />
+                <textarea placeholder="Địa chỉ" rows={3} className="w-full p-3 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none"></textarea>
               </div>
             </div>
-            <ChevronRight className="text-gray-300 group-hover:text-emerald-600" />
-          </button>
-          <button 
-            onClick={() => handleLogin(UserRole.ADMIN)}
-            className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-gray-100 hover:border-emerald-600 hover:bg-emerald-50 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
-                <LayoutDashboard size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold">Quản trị viên</p>
-                <p className="text-xs text-gray-400">Quản trị hệ thống, thống kê</p>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold mb-4">Phương thức thanh toán</h3>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" name="payment" className="w-4 h-4 text-emerald-600 accent-emerald-600" defaultChecked />
+                  <span>Thanh toán khi nhận hàng (COD)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" name="payment" className="w-4 h-4 text-emerald-600 accent-emerald-600" />
+                  <span>Chuyển khoản ngân hàng</span>
+                </label>
               </div>
             </div>
-            <ChevronRight className="text-gray-300 group-hover:text-emerald-600" />
-          </button>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit sticky top-24">
+            <h3 className="text-xl font-bold mb-6">Tóm tắt đơn hàng</h3>
+            <div className="space-y-4 mb-6">
+              {cart.map(item => (
+                <div key={item.id} className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <img src={item.product.image} className="w-12 h-12 object-cover rounded-lg" alt={item.product.name} />
+                    <div>
+                      <p className="font-medium text-sm">{item.product.name}</p>
+                      <p className="text-xs text-gray-500">Số lượng: {item.quantity}</p>
+                    </div>
+                  </div>
+                  <span className="font-bold">{formatPrice(item.product.price * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between">
+                <span>Tạm tính</span>
+                <span>{formatPrice(cartTotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Phí vận chuyển</span>
+                <span>Miễn phí</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <span>Tổng cộng</span>
+                <span className="text-emerald-600">{formatPrice(cartTotal)}</span>
+              </div>
+            </div>
+            <button onClick={handleCheckout} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg mt-6">
+              Đặt hàng
+            </button>
+          </div>
         </div>
-        <p className="mt-8 text-center text-sm text-gray-500">
-          Chưa có tài khoản? <span className="text-emerald-600 font-bold cursor-pointer">Đăng ký ngay</span>
-        </p>
       </div>
-    </div>
-  );
+    );
+  };
+
+  // 7. Login View
+  const LoginView = () => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isRegister, setIsRegister] = useState(false);
+    const [name, setName] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError('');
+      const trimmedEmail = email.trim();
+      const trimmedPassword = password.trim();
+      const trimmedName = name.trim();
+      try {
+        if (isRegister) {
+          await apiService.register({ email: trimmedEmail, password: trimmedPassword, name: trimmedName });
+          alert('Registration successful! Please login.');
+          setIsRegister(false);
+          setName('');
+        } else {
+          const result = await apiService.login({ email: trimmedEmail, password: trimmedPassword });
+          // For now, set a mock user since backend doesn't return user data
+          const user = {
+            id: '1',
+            name: trimmedName || trimmedEmail,
+            email: trimmedEmail,
+            role: UserRole.USER, // Assume user role
+          };
+          setCurrentUser(user);
+          localStorage.setItem('user', JSON.stringify(user));
+          await fetchCart();
+          setView('HOME');
+        }
+      } catch (err) {
+        setError('Authentication failed');
+      }
+    };
+
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100">
+          <h2 className="text-3xl font-black text-center mb-2">
+            {isRegister ? 'Đăng ký' : 'Đăng nhập'}
+          </h2>
+          <p className="text-gray-400 text-center mb-8">
+            {isRegister ? 'Tạo tài khoản mới' : 'Chào mừng trở lại'}
+          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegister && (
+              <input
+                type="text"
+                placeholder="Họ tên"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-4 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none"
+                required
+              />
+            )}
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-4 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Mật khẩu"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-4 rounded-xl border border-gray-200 focus:border-emerald-600 focus:outline-none"
+              required
+            />
+            {error && <p className="text-red-500 text-center">{error}</p>}
+            <button
+              type="submit"
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg"
+            >
+              {isRegister ? 'Đăng ký' : 'Đăng nhập'}
+            </button>
+          </form>
+          <p className="mt-8 text-center text-sm text-gray-500">
+            {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}
+            <span
+              className="text-emerald-600 font-bold cursor-pointer ml-1"
+              onClick={() => setIsRegister(!isRegister)}
+            >
+              {isRegister ? 'Đăng nhập' : 'Đăng ký'}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   // 8. Admin View
   const AdminView = () => (
@@ -610,6 +794,7 @@ export default function App() {
         {view === 'SHOP' && <ShopView />}
         {view === 'DETAIL' && <ProductDetailView />}
         {view === 'CART' && <CartView />}
+        {view === 'CHECKOUT' && <CheckoutView />}
         {view === 'LOGIN' && <LoginView />}
         {view === 'ADMIN' && <AdminView />}
         {view === 'PROFILE' && (
