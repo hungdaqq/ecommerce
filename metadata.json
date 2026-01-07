@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Ergolife - Cửa hàng đồ công thái học",
+  "description": "Website thương mại điện tử chuyên cung cấp các giải pháp công thái học cho văn phòng và đời sống, tích hợp trí tuệ nhân tạo Gemini.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
