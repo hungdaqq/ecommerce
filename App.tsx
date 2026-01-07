@@ -18,9 +18,9 @@ import {
   Trash2,
   FileText
 } from 'lucide-react';
-import { MOCK_PRODUCTS, MOCK_BLOGS, TEST_USERS } from './constants';
-import { User, UserRole, Product, CartItem, Order, BlogPost } from './types';
-import { getAICustomerSupport } from './services/gemini';
+import { MOCK_PRODUCTS, MOCK_BLOGS, TEST_USERS } from './constants.tsx';
+import { User, UserRole, Product, CartItem, Order, BlogPost } from './types.ts';
+import { getAICustomerSupport } from './services/gemini.ts';
 import { 
   LineChart, 
   Line, 
