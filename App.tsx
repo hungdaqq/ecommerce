@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { MOCK_PRODUCTS, MOCK_BLOGS, TEST_USERS } from './constants.tsx';
 import { User, UserRole, Product, CartItem, Order, BlogPost } from './types.ts';
-import { getAICustomerSupport } from './services/gemini.ts';
 import { 
   LineChart, 
   Line, 
@@ -48,9 +47,6 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([]);
-  const [chatInput, setChatInput] = useState('');
 
   // --- Auth Handlers ---
   const handleLogin = (role: UserRole) => {
@@ -91,17 +87,6 @@ export default function App() {
       return acc + (product?.price || 0) * item.quantity;
     }, 0);
   }, [cart]);
-
-  // --- Chat Handlers ---
-  const handleSendMessage = async () => {
-    if (!chatInput.trim()) return;
-    const msg = chatInput;
-    setChatInput('');
-    setChatMessages(prev => [...prev, { role: 'user', text: msg }]);
-    
-    const aiResponse = await getAICustomerSupport(msg);
-    setChatMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
-  };
 
   // --- Views ---
   
@@ -200,7 +185,6 @@ export default function App() {
   // 3. Home View
   const HomeView = () => (
     <div>
-      {/* Hero Section */}
       <section className="relative h-[600px] flex items-center bg-gray-100 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img src="https://picsum.photos/seed/ergohero/1600/800" className="w-full h-full object-cover opacity-60" alt="hero" />
@@ -227,7 +211,6 @@ export default function App() {
         </div>
       </section>
 
-      {/* Featured Products */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-12">
           <div>
@@ -255,7 +238,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <div className="p-5 flex-1 flex flex-col" onClick={() => { setSelectedProduct(product); setView('DETAIL'); }}>
+              <div className="p-5 flex-1 flex flex-col cursor-pointer" onClick={() => { setSelectedProduct(product); setView('DETAIL'); }}>
                 <span className="text-xs text-gray-400 font-medium mb-1">{product.category}</span>
                 <h3 className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors mb-2 line-clamp-2">{product.name}</h3>
                 <div className="mt-auto flex justify-between items-center">
@@ -277,7 +260,6 @@ export default function App() {
   const ShopView = () => (
     <div className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Sidebar Filters */}
         <div className="w-full md:w-64 space-y-8">
           <div>
             <h3 className="text-lg font-bold mb-4">Danh mục</h3>
@@ -300,7 +282,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Product Grid */}
         <div className="flex-1">
           <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <p className="text-gray-500 text-sm">Hiển thị {MOCK_PRODUCTS.length} sản phẩm</p>
@@ -518,7 +499,6 @@ export default function App() {
   // 8. Admin View
   const AdminView = () => (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <div className="w-64 bg-gray-900 text-gray-400 p-6 flex flex-col hidden lg:flex">
         <div className="flex items-center gap-2 text-white mb-10">
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center"><Package size={18}/></div>
@@ -537,7 +517,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
@@ -546,11 +525,10 @@ export default function App() {
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white p-2 rounded-lg border border-gray-200"><Settings size={20} className="text-gray-400"/></div>
-            <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden"><img src={currentUser?.avatar}/></div>
+            <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden"><img src={currentUser?.avatar} alt="avatar" /></div>
           </div>
         </header>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
           {[
             { label: 'Doanh thu', value: '1.280.000.000đ', trend: '+12%', color: 'bg-blue-500' },
@@ -566,7 +544,6 @@ export default function App() {
           ))}
         </div>
 
-        {/* Chart */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 mb-10 h-[400px]">
           <h3 className="font-bold text-gray-900 mb-6">Phân tích doanh thu</h3>
           <ResponsiveContainer width="100%" height="100%">
@@ -583,7 +560,6 @@ export default function App() {
           </ResponsiveContainer>
         </div>
 
-        {/* Recent Orders */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-bold text-gray-900">Đơn hàng mới nhất</h3>
@@ -641,7 +617,7 @@ export default function App() {
             <h2 className="text-3xl font-bold mb-8">Hồ sơ cá nhân</h2>
             <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-6 mb-10">
-                <img src={currentUser?.avatar} className="w-24 h-24 rounded-full border-4 border-emerald-50" />
+                <img src={currentUser?.avatar} className="w-24 h-24 rounded-full border-4 border-emerald-50" alt="avatar" />
                 <div>
                   <h3 className="text-2xl font-bold">{currentUser?.name}</h3>
                   <p className="text-gray-500">{currentUser?.email}</p>
@@ -672,68 +648,6 @@ export default function App() {
       </main>
 
       {view !== 'ADMIN' && view !== 'STAFF' && <Footer />}
-
-      {/* AI Chat Bot */}
-      <div className="fixed bottom-6 right-6 z-[60]">
-        {!chatOpen ? (
-          <button 
-            onClick={() => setChatOpen(true)}
-            className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all group"
-          >
-            <MessageSquare size={28} />
-            <span className="absolute right-full mr-4 bg-white text-gray-900 px-4 py-2 rounded-xl text-sm font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap">
-              Hỗ trợ AI 24/7
-            </span>
-          </button>
-        ) : (
-          <div className="w-80 md:w-96 h-[500px] bg-white rounded-3xl shadow-2xl flex flex-col border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-10">
-            <div className="bg-emerald-600 p-4 flex justify-between items-center text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                  <UserIcon size={18} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm">Ergolife AI Support</h4>
-                  <p className="text-[10px] opacity-80">Trực tuyến</p>
-                </div>
-              </div>
-              <button onClick={() => setChatOpen(false)}><X size={20}/></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatMessages.length === 0 && (
-                <div className="text-center text-gray-400 mt-10">
-                  <p className="text-sm">Chào bạn! Tôi có thể giúp gì cho bạn về các sản phẩm công thái học?</p>
-                </div>
-              )}
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                    msg.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 border-t border-gray-100 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Nhập câu hỏi..." 
-                className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              />
-              <button 
-                onClick={handleSendMessage}
-                className="bg-emerald-600 text-white p-2 rounded-xl hover:bg-emerald-700"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
